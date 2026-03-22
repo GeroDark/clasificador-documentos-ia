@@ -6,9 +6,12 @@ from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.models.document import Document
+from app.models.document_classification import DocumentClassification
 from app.models.document_text import DocumentText
 from app.schemas.document import DocumentCreate, DocumentResponse
+from app.schemas.document_classification import DocumentClassificationResponse
 from app.schemas.document_text import DocumentTextResponse
+from app.services.classifier import classify_text
 from app.services.storage import save_upload_file
 from app.services.text_extractor import extract_text_by_extension
 
@@ -68,7 +71,17 @@ def upload_document(
         )
         db.add(document_text)
 
-        document.status = "text_extracted"
+        classification_result = classify_text(extracted_text)
+        classification = DocumentClassification(
+            document_id=document.id,
+            category=str(classification_result["category"]),
+            confidence=float(classification_result["confidence"]),
+            method=str(classification_result["method"]),
+            matched_keywords=classification_result["matched_keywords"],
+        )
+        db.add(classification)
+
+        document.status = "classified"
         db.add(document)
 
         db.commit()
@@ -106,3 +119,73 @@ def get_document_text(document_id: int, db: Session = Depends(get_db)) -> Docume
         )
 
     return document_text
+
+
+@router.get("/{document_id}/classification", response_model=DocumentClassificationResponse)
+def get_document_classification(
+    document_id: int,
+    db: Session = Depends(get_db),
+) -> DocumentClassification:
+    stmt = select(DocumentClassification).where(DocumentClassification.document_id == document_id)
+    classification = db.scalar(stmt)
+
+    if classification is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Clasificación no encontrada.",
+        )
+
+    return classification
+
+
+@router.post("/{document_id}/classify", response_model=DocumentClassificationResponse)
+def classify_document_again(
+    document_id: int,
+    db: Session = Depends(get_db),
+) -> DocumentClassification:
+    document = db.get(Document, document_id)
+    if document is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Documento no encontrado.",
+        )
+
+    stmt = select(DocumentText).where(DocumentText.document_id == document_id)
+    document_text = db.scalar(stmt)
+
+    if document_text is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Texto del documento no encontrado.",
+        )
+
+    result = classify_text(document_text.raw_text)
+
+    stmt_existing = select(DocumentClassification).where(
+        DocumentClassification.document_id == document_id
+    )
+    existing = db.scalar(stmt_existing)
+
+    if existing is None:
+        existing = DocumentClassification(
+            document_id=document_id,
+            category=str(result["category"]),
+            confidence=float(result["confidence"]),
+            method=str(result["method"]),
+            matched_keywords=result["matched_keywords"],
+        )
+        db.add(existing)
+    else:
+        existing.category = str(result["category"])
+        existing.confidence = float(result["confidence"])
+        existing.method = str(result["method"])
+        existing.matched_keywords = result["matched_keywords"]
+        db.add(existing)
+
+    document.status = "classified"
+    db.add(document)
+
+    db.commit()
+    db.refresh(existing)
+
+    return existing

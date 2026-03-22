@@ -28,3 +28,10 @@ class Document(Base):
         uselist=False,
         cascade="all, delete-orphan",
     )
+
+    classification = relationship(
+        "DocumentClassification",
+        back_populates="document",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
