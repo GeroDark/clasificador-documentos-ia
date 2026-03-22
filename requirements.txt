@@ -5,3 +5,12 @@ psycopg[binary]
 pydantic-settings
 python-dotenv
 python-multipart
+fastapi[standard-no-fastapi-cloud-cli]
+sqlalchemy
+alembic
+psycopg[binary]
+pydantic-settings
+python-dotenv
+python-multipart
+pypdf
+python-docx
