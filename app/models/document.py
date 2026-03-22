@@ -28,34 +28,34 @@ class Document(Base):
         uselist=False,
         cascade="all, delete-orphan",
     )
-
     classification = relationship(
         "DocumentClassification",
         back_populates="document",
         uselist=False,
         cascade="all, delete-orphan",
     )
-
     summary = relationship(
         "DocumentSummary",
         back_populates="document",
         uselist=False,
         cascade="all, delete-orphan",
     )
-
     extracted_fields = relationship(
         "ExtractedField",
         back_populates="document",
         cascade="all, delete-orphan",
     )
-
     document_chunks = relationship(
         "DocumentChunk",
         back_populates="document",
         cascade="all, delete-orphan",
     )
-
     query_logs = relationship(
         "QueryLog",
         back_populates="document",
+    )
+    processing_jobs = relationship(
+        "ProcessingJob",
+        back_populates="document",
+        cascade="all, delete-orphan",
     )

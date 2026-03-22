@@ -10,6 +10,7 @@ from app.schemas.document_classification import DocumentClassificationResponse
 from app.schemas.document_summary import DocumentSummaryResponse
 from app.schemas.document_text import DocumentTextResponse
 from app.schemas.extracted_field import ExtractedFieldResponse
+from app.schemas.processing_job import ProcessingJobResponse
 from app.schemas.search import SemanticSearchResultResponse
 
 __all__ = [
@@ -17,6 +18,7 @@ __all__ = [
     "AskResponse",
     "AnswerSourceChunkResponse",
     "QueryLogResponse",
+    "ProcessingJobResponse",
     "DocumentCreate",
     "DocumentResponse",
     "DocumentTextResponse",

@@ -11,18 +11,20 @@ from app.models.document_classification import DocumentClassification
 from app.models.document_summary import DocumentSummary
 from app.models.document_text import DocumentText
 from app.models.extracted_field import ExtractedField
+from app.models.processing_job import ProcessingJob
 from app.schemas.document import DocumentCreate, DocumentResponse
 from app.schemas.document_chunk import DocumentChunkResponse
 from app.schemas.document_classification import DocumentClassificationResponse
 from app.schemas.document_summary import DocumentSummaryResponse
 from app.schemas.document_text import DocumentTextResponse
 from app.schemas.extracted_field import ExtractedFieldResponse
+from app.schemas.processing_job import ProcessingJobResponse
 from app.services.classifier import classify_text
 from app.services.field_extractor import extract_fields
 from app.services.semantic_indexer import reindex_document_chunks
 from app.services.storage import save_upload_file
 from app.services.summarizer import generate_summary
-from app.services.text_extractor import extract_text_by_extension
+from app.tasks import process_document_task
 
 router = APIRouter(prefix="/api/documents", tags=["documents"])
 
@@ -43,11 +45,11 @@ def create_document(payload: DocumentCreate, db: Session = Depends(get_db)) -> D
     return document
 
 
-@router.post("/upload/", response_model=DocumentResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/upload/", response_model=ProcessingJobResponse, status_code=status.HTTP_202_ACCEPTED)
 def upload_document(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
-) -> Document:
+) -> ProcessingJob:
     filename = file.filename or ""
     extension = Path(filename).suffix.lower()
 
@@ -65,65 +67,28 @@ def upload_document(
         file_path=file_path,
         content_type=file.content_type,
         size_bytes=file.size,
-        status="uploaded",
+        status="queued",
     )
     db.add(document)
     db.commit()
     db.refresh(document)
 
-    extracted_text = extract_text_by_extension(file_path, extension)
+    job = ProcessingJob(
+        document_id=document.id,
+        status="queued",
+    )
+    db.add(job)
+    db.commit()
+    db.refresh(job)
 
-    if extracted_text:
-        db.add(
-            DocumentText(
-                document_id=document.id,
-                raw_text=extracted_text,
-            )
-        )
+    async_result = process_document_task.delay(document.id, job.id)
 
-        classification_result = classify_text(extracted_text)
-        db.add(
-            DocumentClassification(
-                document_id=document.id,
-                category=str(classification_result["category"]),
-                confidence=float(classification_result["confidence"]),
-                method=str(classification_result["method"]),
-                matched_keywords=classification_result["matched_keywords"],
-            )
-        )
+    job.task_id = async_result.id
+    db.add(job)
+    db.commit()
+    db.refresh(job)
 
-        summary_result = generate_summary(extracted_text)
-        db.add(
-            DocumentSummary(
-                document_id=document.id,
-                short_summary=str(summary_result["short_summary"]),
-                key_points=summary_result["key_points"],
-                keywords=summary_result["keywords"],
-                method=str(summary_result["method"]),
-            )
-        )
-
-        field_results = extract_fields(extracted_text)
-        for field in field_results:
-            db.add(
-                ExtractedField(
-                    document_id=document.id,
-                    field_name=str(field["field_name"]),
-                    field_value=str(field["field_value"]),
-                    confidence=float(field["confidence"]),
-                    method=str(field["method"]),
-                )
-            )
-
-        reindex_document_chunks(db, document.id, extracted_text)
-
-        document.status = "indexed"
-        db.add(document)
-
-        db.commit()
-        db.refresh(document)
-
-    return document
+    return job
 
 
 @router.get("/", response_model=list[DocumentResponse])
@@ -313,58 +278,6 @@ def get_document_fields(
     return fields
 
 
-@router.post("/{document_id}/extract-fields", response_model=list[ExtractedFieldResponse])
-def extract_document_fields_again(
-    document_id: int,
-    db: Session = Depends(get_db),
-) -> list[ExtractedField]:
-    document = db.get(Document, document_id)
-    if document is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Documento no encontrado.",
-        )
-
-    stmt = select(DocumentText).where(DocumentText.document_id == document_id)
-    document_text = db.scalar(stmt)
-
-    if document_text is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Texto del documento no encontrado.",
-        )
-
-    stmt_existing = select(ExtractedField).where(ExtractedField.document_id == document_id)
-    existing_fields = list(db.scalars(stmt_existing).all())
-
-    for existing in existing_fields:
-        db.delete(existing)
-
-    results = extract_fields(document_text.raw_text)
-    created_fields: list[ExtractedField] = []
-
-    for field in results:
-        item = ExtractedField(
-            document_id=document_id,
-            field_name=str(field["field_name"]),
-            field_value=str(field["field_value"]),
-            confidence=float(field["confidence"]),
-            method=str(field["method"]),
-        )
-        db.add(item)
-        created_fields.append(item)
-
-    document.status = "fields_extracted"
-    db.add(document)
-
-    db.commit()
-
-    for item in created_fields:
-        db.refresh(item)
-
-    return created_fields
-
-
 @router.get("/{document_id}/chunks", response_model=list[DocumentChunkResponse])
 def get_document_chunks(
     document_id: int,
@@ -384,37 +297,3 @@ def get_document_chunks(
         )
 
     return chunks
-
-
-@router.post("/{document_id}/index", response_model=list[DocumentChunkResponse])
-def reindex_document(
-    document_id: int,
-    db: Session = Depends(get_db),
-) -> list[DocumentChunk]:
-    document = db.get(Document, document_id)
-    if document is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Documento no encontrado.",
-        )
-
-    stmt = select(DocumentText).where(DocumentText.document_id == document_id)
-    document_text = db.scalar(stmt)
-
-    if document_text is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Texto del documento no encontrado.",
-        )
-
-    created = reindex_document_chunks(db, document_id, document_text.raw_text)
-
-    document.status = "indexed"
-    db.add(document)
-
-    db.commit()
-
-    for item in created:
-        db.refresh(item)
-
-    return created

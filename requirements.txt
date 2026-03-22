@@ -16,3 +16,4 @@ pypdf
 python-docx
 sentence-transformers
 pgvector
+celery[redis]
