@@ -12,6 +12,8 @@ class DocumentCreate(BaseModel):
 class DocumentResponse(BaseModel):
     id: int
     original_filename: str
+    stored_filename: str | None
+    file_path: str | None
     content_type: str | None
     size_bytes: int | None
     status: str

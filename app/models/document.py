@@ -11,6 +11,8 @@ class Document(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     original_filename: Mapped[str] = mapped_column(String(255), nullable=False)
+    stored_filename: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    file_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
     content_type: Mapped[str | None] = mapped_column(String(100), nullable=True)
     size_bytes: Mapped[int | None] = mapped_column(Integer, nullable=True)
     status: Mapped[str] = mapped_column(String(50), nullable=False, default="uploaded")
@@ -19,4 +21,3 @@ class Document(Base):
         nullable=False,
         server_default=func.now(),
     )
-    
