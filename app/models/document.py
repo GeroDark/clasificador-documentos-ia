@@ -48,3 +48,9 @@ class Document(Base):
         back_populates="document",
         cascade="all, delete-orphan",
     )
+
+    document_chunks = relationship(
+        "DocumentChunk",
+        back_populates="document",
+        cascade="all, delete-orphan",
+    )

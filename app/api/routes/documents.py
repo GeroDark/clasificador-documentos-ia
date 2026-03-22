@@ -6,17 +6,20 @@ from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.models.document import Document
+from app.models.document_chunk import DocumentChunk
 from app.models.document_classification import DocumentClassification
 from app.models.document_summary import DocumentSummary
 from app.models.document_text import DocumentText
 from app.models.extracted_field import ExtractedField
 from app.schemas.document import DocumentCreate, DocumentResponse
+from app.schemas.document_chunk import DocumentChunkResponse
 from app.schemas.document_classification import DocumentClassificationResponse
 from app.schemas.document_summary import DocumentSummaryResponse
 from app.schemas.document_text import DocumentTextResponse
 from app.schemas.extracted_field import ExtractedFieldResponse
 from app.services.classifier import classify_text
 from app.services.field_extractor import extract_fields
+from app.services.semantic_indexer import reindex_document_chunks
 from app.services.storage import save_upload_file
 from app.services.summarizer import generate_summary
 from app.services.text_extractor import extract_text_by_extension
@@ -71,44 +74,50 @@ def upload_document(
     extracted_text = extract_text_by_extension(file_path, extension)
 
     if extracted_text:
-        document_text = DocumentText(
-            document_id=document.id,
-            raw_text=extracted_text,
+        db.add(
+            DocumentText(
+                document_id=document.id,
+                raw_text=extracted_text,
+            )
         )
-        db.add(document_text)
 
         classification_result = classify_text(extracted_text)
-        classification = DocumentClassification(
-            document_id=document.id,
-            category=str(classification_result["category"]),
-            confidence=float(classification_result["confidence"]),
-            method=str(classification_result["method"]),
-            matched_keywords=classification_result["matched_keywords"],
+        db.add(
+            DocumentClassification(
+                document_id=document.id,
+                category=str(classification_result["category"]),
+                confidence=float(classification_result["confidence"]),
+                method=str(classification_result["method"]),
+                matched_keywords=classification_result["matched_keywords"],
+            )
         )
-        db.add(classification)
 
         summary_result = generate_summary(extracted_text)
-        summary = DocumentSummary(
-            document_id=document.id,
-            short_summary=str(summary_result["short_summary"]),
-            key_points=summary_result["key_points"],
-            keywords=summary_result["keywords"],
-            method=str(summary_result["method"]),
+        db.add(
+            DocumentSummary(
+                document_id=document.id,
+                short_summary=str(summary_result["short_summary"]),
+                key_points=summary_result["key_points"],
+                keywords=summary_result["keywords"],
+                method=str(summary_result["method"]),
+            )
         )
-        db.add(summary)
 
         field_results = extract_fields(extracted_text)
         for field in field_results:
-            extracted_field = ExtractedField(
-                document_id=document.id,
-                field_name=str(field["field_name"]),
-                field_value=str(field["field_value"]),
-                confidence=float(field["confidence"]),
-                method=str(field["method"]),
+            db.add(
+                ExtractedField(
+                    document_id=document.id,
+                    field_name=str(field["field_name"]),
+                    field_value=str(field["field_value"]),
+                    confidence=float(field["confidence"]),
+                    method=str(field["method"]),
+                )
             )
-            db.add(extracted_field)
 
-        document.status = "fields_extracted"
+        reindex_document_chunks(db, document.id, extracted_text)
+
+        document.status = "indexed"
         db.add(document)
 
         db.commit()
@@ -354,3 +363,58 @@ def extract_document_fields_again(
         db.refresh(item)
 
     return created_fields
+
+
+@router.get("/{document_id}/chunks", response_model=list[DocumentChunkResponse])
+def get_document_chunks(
+    document_id: int,
+    db: Session = Depends(get_db),
+) -> list[DocumentChunk]:
+    stmt = (
+        select(DocumentChunk)
+        .where(DocumentChunk.document_id == document_id)
+        .order_by(DocumentChunk.chunk_index.asc())
+    )
+    chunks = list(db.scalars(stmt).all())
+
+    if not chunks:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Chunks no encontrados para este documento.",
+        )
+
+    return chunks
+
+
+@router.post("/{document_id}/index", response_model=list[DocumentChunkResponse])
+def reindex_document(
+    document_id: int,
+    db: Session = Depends(get_db),
+) -> list[DocumentChunk]:
+    document = db.get(Document, document_id)
+    if document is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Documento no encontrado.",
+        )
+
+    stmt = select(DocumentText).where(DocumentText.document_id == document_id)
+    document_text = db.scalar(stmt)
+
+    if document_text is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Texto del documento no encontrado.",
+        )
+
+    created = reindex_document_chunks(db, document_id, document_text.raw_text)
+
+    document.status = "indexed"
+    db.add(document)
+
+    db.commit()
+
+    for item in created:
+        db.refresh(item)
+
+    return created

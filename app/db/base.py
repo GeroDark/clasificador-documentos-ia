@@ -1,5 +1,6 @@
 from app.db.base_class import Base
 from app.models.document import Document
+from app.models.document_chunk import DocumentChunk
 from app.models.document_classification import DocumentClassification
 from app.models.document_summary import DocumentSummary
 from app.models.document_text import DocumentText
@@ -12,4 +13,5 @@ __all__ = [
     "DocumentClassification",
     "DocumentSummary",
     "ExtractedField",
+    "DocumentChunk",
 ]

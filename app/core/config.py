@@ -10,6 +10,9 @@ class Settings(BaseSettings):
     app_port: int = 8000
     database_url: str = "postgresql+psycopg://postgres:postgres@127.0.0.1:5433/clasificador_documentos_ia"
     uploads_dir: str = "uploads"
+    embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
+    embedding_dimensions: int = 384
+    semantic_search_top_k: int = 5
 
     model_config = SettingsConfigDict(
         env_file=".env",
