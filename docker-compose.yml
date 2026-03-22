@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: clasificador-documentos-postgres
+    environment:
+      POSTGRES_DB: clasificador_documentos_ia
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
