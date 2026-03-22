@@ -35,3 +35,10 @@ class Document(Base):
         uselist=False,
         cascade="all, delete-orphan",
     )
+
+    summary = relationship(
+        "DocumentSummary",
+        back_populates="document",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )

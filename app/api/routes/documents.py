@@ -7,12 +7,15 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.models.document import Document
 from app.models.document_classification import DocumentClassification
+from app.models.document_summary import DocumentSummary
 from app.models.document_text import DocumentText
 from app.schemas.document import DocumentCreate, DocumentResponse
 from app.schemas.document_classification import DocumentClassificationResponse
+from app.schemas.document_summary import DocumentSummaryResponse
 from app.schemas.document_text import DocumentTextResponse
 from app.services.classifier import classify_text
 from app.services.storage import save_upload_file
+from app.services.summarizer import generate_summary
 from app.services.text_extractor import extract_text_by_extension
 
 router = APIRouter(prefix="/api/documents", tags=["documents"])
@@ -81,7 +84,17 @@ def upload_document(
         )
         db.add(classification)
 
-        document.status = "classified"
+        summary_result = generate_summary(extracted_text)
+        summary = DocumentSummary(
+            document_id=document.id,
+            short_summary=str(summary_result["short_summary"]),
+            key_points=summary_result["key_points"],
+            keywords=summary_result["keywords"],
+            method=str(summary_result["method"]),
+        )
+        db.add(summary)
+
+        document.status = "summarized"
         db.add(document)
 
         db.commit()
@@ -182,7 +195,72 @@ def classify_document_again(
         existing.matched_keywords = result["matched_keywords"]
         db.add(existing)
 
-    document.status = "classified"
+    db.commit()
+    db.refresh(existing)
+
+    return existing
+
+
+@router.get("/{document_id}/summary", response_model=DocumentSummaryResponse)
+def get_document_summary(
+    document_id: int,
+    db: Session = Depends(get_db),
+) -> DocumentSummary:
+    stmt = select(DocumentSummary).where(DocumentSummary.document_id == document_id)
+    summary = db.scalar(stmt)
+
+    if summary is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Resumen no encontrado.",
+        )
+
+    return summary
+
+
+@router.post("/{document_id}/summarize", response_model=DocumentSummaryResponse)
+def summarize_document_again(
+    document_id: int,
+    db: Session = Depends(get_db),
+) -> DocumentSummary:
+    document = db.get(Document, document_id)
+    if document is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Documento no encontrado.",
+        )
+
+    stmt = select(DocumentText).where(DocumentText.document_id == document_id)
+    document_text = db.scalar(stmt)
+
+    if document_text is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Texto del documento no encontrado.",
+        )
+
+    result = generate_summary(document_text.raw_text)
+
+    stmt_existing = select(DocumentSummary).where(DocumentSummary.document_id == document_id)
+    existing = db.scalar(stmt_existing)
+
+    if existing is None:
+        existing = DocumentSummary(
+            document_id=document_id,
+            short_summary=str(result["short_summary"]),
+            key_points=result["key_points"],
+            keywords=result["keywords"],
+            method=str(result["method"]),
+        )
+        db.add(existing)
+    else:
+        existing.short_summary = str(result["short_summary"])
+        existing.key_points = result["key_points"]
+        existing.keywords = result["keywords"]
+        existing.method = str(result["method"])
+        db.add(existing)
+
+    document.status = "summarized"
     db.add(document)
 
     db.commit()

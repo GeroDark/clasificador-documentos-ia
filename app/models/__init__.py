@@ -1,5 +1,6 @@
 from app.models.document import Document
 from app.models.document_classification import DocumentClassification
+from app.models.document_summary import DocumentSummary
 from app.models.document_text import DocumentText
 
-__all__ = ["Document", "DocumentText", "DocumentClassification"]
+__all__ = ["Document", "DocumentText", "DocumentClassification", "DocumentSummary"]
