@@ -42,3 +42,9 @@ class Document(Base):
         uselist=False,
         cascade="all, delete-orphan",
     )
+
+    extracted_fields = relationship(
+        "ExtractedField",
+        back_populates="document",
+        cascade="all, delete-orphan",
+    )

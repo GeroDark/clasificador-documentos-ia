@@ -9,11 +9,14 @@ from app.models.document import Document
 from app.models.document_classification import DocumentClassification
 from app.models.document_summary import DocumentSummary
 from app.models.document_text import DocumentText
+from app.models.extracted_field import ExtractedField
 from app.schemas.document import DocumentCreate, DocumentResponse
 from app.schemas.document_classification import DocumentClassificationResponse
 from app.schemas.document_summary import DocumentSummaryResponse
 from app.schemas.document_text import DocumentTextResponse
+from app.schemas.extracted_field import ExtractedFieldResponse
 from app.services.classifier import classify_text
+from app.services.field_extractor import extract_fields
 from app.services.storage import save_upload_file
 from app.services.summarizer import generate_summary
 from app.services.text_extractor import extract_text_by_extension
@@ -94,7 +97,18 @@ def upload_document(
         )
         db.add(summary)
 
-        document.status = "summarized"
+        field_results = extract_fields(extracted_text)
+        for field in field_results:
+            extracted_field = ExtractedField(
+                document_id=document.id,
+                field_name=str(field["field_name"]),
+                field_value=str(field["field_value"]),
+                confidence=float(field["confidence"]),
+                method=str(field["method"]),
+            )
+            db.add(extracted_field)
+
+        document.status = "fields_extracted"
         db.add(document)
 
         db.commit()
@@ -267,3 +281,76 @@ def summarize_document_again(
     db.refresh(existing)
 
     return existing
+
+
+@router.get("/{document_id}/fields", response_model=list[ExtractedFieldResponse])
+def get_document_fields(
+    document_id: int,
+    db: Session = Depends(get_db),
+) -> list[ExtractedField]:
+    stmt = (
+        select(ExtractedField)
+        .where(ExtractedField.document_id == document_id)
+        .order_by(ExtractedField.field_name.asc())
+    )
+    fields = list(db.scalars(stmt).all())
+
+    if not fields:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Campos extraídos no encontrados.",
+        )
+
+    return fields
+
+
+@router.post("/{document_id}/extract-fields", response_model=list[ExtractedFieldResponse])
+def extract_document_fields_again(
+    document_id: int,
+    db: Session = Depends(get_db),
+) -> list[ExtractedField]:
+    document = db.get(Document, document_id)
+    if document is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Documento no encontrado.",
+        )
+
+    stmt = select(DocumentText).where(DocumentText.document_id == document_id)
+    document_text = db.scalar(stmt)
+
+    if document_text is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Texto del documento no encontrado.",
+        )
+
+    stmt_existing = select(ExtractedField).where(ExtractedField.document_id == document_id)
+    existing_fields = list(db.scalars(stmt_existing).all())
+
+    for existing in existing_fields:
+        db.delete(existing)
+
+    results = extract_fields(document_text.raw_text)
+    created_fields: list[ExtractedField] = []
+
+    for field in results:
+        item = ExtractedField(
+            document_id=document_id,
+            field_name=str(field["field_name"]),
+            field_value=str(field["field_value"]),
+            confidence=float(field["confidence"]),
+            method=str(field["method"]),
+        )
+        db.add(item)
+        created_fields.append(item)
+
+    document.status = "fields_extracted"
+    db.add(document)
+
+    db.commit()
+
+    for item in created_fields:
+        db.refresh(item)
+
+    return created_fields
