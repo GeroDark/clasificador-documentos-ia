@@ -54,3 +54,8 @@ class Document(Base):
         back_populates="document",
         cascade="all, delete-orphan",
     )
+
+    query_logs = relationship(
+        "QueryLog",
+        back_populates="document",
+    )

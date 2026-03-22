@@ -5,6 +5,7 @@ from app.models.document_classification import DocumentClassification
 from app.models.document_summary import DocumentSummary
 from app.models.document_text import DocumentText
 from app.models.extracted_field import ExtractedField
+from app.models.query_log import QueryLog
 
 __all__ = [
     "Base",
@@ -14,4 +15,5 @@ __all__ = [
     "DocumentSummary",
     "ExtractedField",
     "DocumentChunk",
+    "QueryLog",
 ]
