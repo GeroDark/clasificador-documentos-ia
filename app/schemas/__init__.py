@@ -1,3 +1,4 @@
+from app.schemas.api_error import ApiErrorResponse, ValidationErrorDetail
 from app.schemas.ask import (
     AnswerSourceChunkResponse,
     AskRequest,
@@ -17,6 +18,7 @@ from app.schemas.search import SemanticSearchResultResponse
 __all__ = [
     "AskRequest",
     "AskResponse",
+    "ApiErrorResponse",
     "AnswerSourceChunkResponse",
     "QueryLogResponse",
     "ProcessingJobResponse",
@@ -28,6 +30,7 @@ __all__ = [
     "ExtractedFieldResponse",
     "DocumentChunkResponse",
     "SemanticSearchResultResponse",
+    "ValidationErrorDetail",
     "HealthComponentResponse",
     "HealthReadyResponse",
 ]

@@ -15,4 +15,8 @@ def test_get_job_status_returns_404_for_missing_job(client) -> None:
     response = client.get("/api/jobs/999/status")
 
     assert response.status_code == 404
-    assert response.json()["detail"] == "Job no encontrado."
+    assert response.json() == {
+        "code": "not_found",
+        "message": "Job no encontrado.",
+        "details": None,
+    }

@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.api.errors import ERROR_RESPONSES, not_found
 from app.core.config import get_settings
 from app.db.session import get_db
 from app.models.document import Document
@@ -19,7 +20,17 @@ from app.services.question_answering import answer_question
 router = APIRouter(prefix="/api/ask", tags=["ask"])
 
 
-@router.post("/", response_model=AskResponse, status_code=status.HTTP_200_OK)
+@router.post(
+    "/",
+    response_model=AskResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Responder una pregunta sobre documentos",
+    description="Recupera chunks relevantes, genera una respuesta y registra la consulta realizada.",
+    responses={
+        status.HTTP_404_NOT_FOUND: ERROR_RESPONSES[status.HTTP_404_NOT_FOUND],
+        status.HTTP_422_UNPROCESSABLE_CONTENT: ERROR_RESPONSES[status.HTTP_422_UNPROCESSABLE_CONTENT],
+    },
+)
 def ask_question(payload: AskRequest, db: Session = Depends(get_db)) -> AskResponse:
     settings = get_settings()
     final_top_k = payload.top_k or settings.semantic_search_top_k
@@ -39,10 +50,7 @@ def ask_question(payload: AskRequest, db: Session = Depends(get_db)) -> AskRespo
     rows = db.execute(stmt).all()
 
     if not rows:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="No se encontraron fragmentos relevantes para responder.",
-        )
+        raise not_found("No se encontraron fragmentos relevantes para responder.")
 
     sources: list[AnswerSourceChunkResponse] = []
     raw_sources: list[dict[str, str | int | float]] = []
@@ -82,7 +90,12 @@ def ask_question(payload: AskRequest, db: Session = Depends(get_db)) -> AskRespo
     )
 
 
-@router.get("/logs/", response_model=list[QueryLogResponse])
+@router.get(
+    "/logs/",
+    response_model=list[QueryLogResponse],
+    summary="Listar consultas realizadas",
+    description="Retorna el historial de preguntas respondidas por la API.",
+)
 def list_query_logs(
     document_id: int | None = Query(default=None),
     limit: int = Query(default=20, ge=1, le=100),

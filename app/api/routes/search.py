@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.api.errors import ERROR_RESPONSES
 from app.core.config import get_settings
 from app.db.session import get_db
 from app.models.document import Document
@@ -12,7 +13,15 @@ from app.services.embeddings import embed_query
 router = APIRouter(prefix="/api/search", tags=["search"])
 
 
-@router.get("/semantic/", response_model=list[SemanticSearchResultResponse])
+@router.get(
+    "/semantic/",
+    response_model=list[SemanticSearchResultResponse],
+    summary="Ejecutar búsqueda semántica",
+    description="Busca los chunks más cercanos a la consulta y devuelve contexto documental relevante.",
+    responses={
+        status.HTTP_422_UNPROCESSABLE_CONTENT: ERROR_RESPONSES[status.HTTP_422_UNPROCESSABLE_CONTENT],
+    },
+)
 def semantic_search(
     q: str = Query(..., min_length=2, description="Consulta semántica"),
     limit: int | None = Query(None, ge=1, le=20),

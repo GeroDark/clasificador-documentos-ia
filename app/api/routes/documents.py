@@ -1,9 +1,10 @@
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, UploadFile, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.api.errors import ERROR_RESPONSES, bad_request, not_found
 from app.db.session import get_db
 from app.models.document import Document
 from app.models.document_chunk import DocumentChunk
@@ -29,7 +30,16 @@ router = APIRouter(prefix="/api/documents", tags=["documents"])
 ALLOWED_EXTENSIONS = {".pdf", ".docx", ".txt"}
 
 
-@router.post("/", response_model=DocumentResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/",
+    response_model=DocumentResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Registrar documento sin archivo",
+    description="Crea un documento con metadata básica para casos donde el archivo se gestiona aparte.",
+    responses={
+        status.HTTP_422_UNPROCESSABLE_CONTENT: ERROR_RESPONSES[status.HTTP_422_UNPROCESSABLE_CONTENT],
+    },
+)
 def create_document(payload: DocumentCreate, db: Session = Depends(get_db)) -> Document:
     document = Document(
         original_filename=payload.original_filename,
@@ -43,7 +53,17 @@ def create_document(payload: DocumentCreate, db: Session = Depends(get_db)) -> D
     return document
 
 
-@router.post("/upload/", response_model=ProcessingJobResponse, status_code=status.HTTP_202_ACCEPTED)
+@router.post(
+    "/upload/",
+    response_model=ProcessingJobResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="Subir documento y encolar procesamiento",
+    description="Valida el archivo, lo persiste en storage local y crea el job asíncrono asociado.",
+    responses={
+        status.HTTP_400_BAD_REQUEST: ERROR_RESPONSES[status.HTTP_400_BAD_REQUEST],
+        status.HTTP_422_UNPROCESSABLE_CONTENT: ERROR_RESPONSES[status.HTTP_422_UNPROCESSABLE_CONTENT],
+    },
+)
 def upload_document(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
@@ -52,10 +72,7 @@ def upload_document(
     extension = Path(filename).suffix.lower()
 
     if extension not in ALLOWED_EXTENSIONS:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Tipo de archivo no permitido. Solo se aceptan PDF, DOCX y TXT.",
-        )
+        raise bad_request("Tipo de archivo no permitido. Solo se aceptan PDF, DOCX y TXT.")
 
     stored_filename, file_path = save_upload_file(file)
 
@@ -89,38 +106,55 @@ def upload_document(
     return job
 
 
-@router.get("/", response_model=list[DocumentResponse])
+@router.get(
+    "/",
+    response_model=list[DocumentResponse],
+    summary="Listar documentos",
+    description="Retorna documentos registrados ordenados por fecha de creación descendente.",
+)
 def list_documents(db: Session = Depends(get_db)) -> list[Document]:
     stmt = select(Document).order_by(Document.created_at.desc())
     return list(db.scalars(stmt).all())
 
 
-@router.get("/{document_id}", response_model=DocumentResponse)
+@router.get(
+    "/{document_id}",
+    response_model=DocumentResponse,
+    summary="Obtener documento",
+    description="Recupera la metadata principal de un documento por identificador.",
+    responses={status.HTTP_404_NOT_FOUND: ERROR_RESPONSES[status.HTTP_404_NOT_FOUND]},
+)
 def get_document(document_id: int, db: Session = Depends(get_db)) -> Document:
     document = db.get(Document, document_id)
     if document is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Documento no encontrado.",
-        )
+        raise not_found("Documento no encontrado.")
     return document
 
 
-@router.get("/{document_id}/text", response_model=DocumentTextResponse)
+@router.get(
+    "/{document_id}/text",
+    response_model=DocumentTextResponse,
+    summary="Obtener texto extraído",
+    description="Devuelve el texto extraído y persistido para un documento.",
+    responses={status.HTTP_404_NOT_FOUND: ERROR_RESPONSES[status.HTTP_404_NOT_FOUND]},
+)
 def get_document_text(document_id: int, db: Session = Depends(get_db)) -> DocumentText:
     stmt = select(DocumentText).where(DocumentText.document_id == document_id)
     document_text = db.scalar(stmt)
 
     if document_text is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Texto del documento no encontrado.",
-        )
+        raise not_found("Texto del documento no encontrado.")
 
     return document_text
 
 
-@router.get("/{document_id}/classification", response_model=DocumentClassificationResponse)
+@router.get(
+    "/{document_id}/classification",
+    response_model=DocumentClassificationResponse,
+    summary="Obtener clasificación",
+    description="Retorna la última clasificación calculada para el documento.",
+    responses={status.HTTP_404_NOT_FOUND: ERROR_RESPONSES[status.HTTP_404_NOT_FOUND]},
+)
 def get_document_classification(
     document_id: int,
     db: Session = Depends(get_db),
@@ -129,34 +163,31 @@ def get_document_classification(
     classification = db.scalar(stmt)
 
     if classification is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Clasificación no encontrada.",
-        )
+        raise not_found("Clasificación no encontrada.")
 
     return classification
 
 
-@router.post("/{document_id}/classify", response_model=DocumentClassificationResponse)
+@router.post(
+    "/{document_id}/classify",
+    response_model=DocumentClassificationResponse,
+    summary="Reclasificar documento",
+    description="Recalcula la clasificación usando el texto ya extraído y actualiza el registro persistido.",
+    responses={status.HTTP_404_NOT_FOUND: ERROR_RESPONSES[status.HTTP_404_NOT_FOUND]},
+)
 def classify_document_again(
     document_id: int,
     db: Session = Depends(get_db),
 ) -> DocumentClassification:
     document = db.get(Document, document_id)
     if document is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Documento no encontrado.",
-        )
+        raise not_found("Documento no encontrado.")
 
     stmt = select(DocumentText).where(DocumentText.document_id == document_id)
     document_text = db.scalar(stmt)
 
     if document_text is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Texto del documento no encontrado.",
-        )
+        raise not_found("Texto del documento no encontrado.")
 
     result = classify_text(document_text.raw_text)
 
@@ -187,7 +218,13 @@ def classify_document_again(
     return existing
 
 
-@router.get("/{document_id}/summary", response_model=DocumentSummaryResponse)
+@router.get(
+    "/{document_id}/summary",
+    response_model=DocumentSummaryResponse,
+    summary="Obtener resumen",
+    description="Devuelve el resumen persistido para un documento.",
+    responses={status.HTTP_404_NOT_FOUND: ERROR_RESPONSES[status.HTTP_404_NOT_FOUND]},
+)
 def get_document_summary(
     document_id: int,
     db: Session = Depends(get_db),
@@ -196,34 +233,31 @@ def get_document_summary(
     summary = db.scalar(stmt)
 
     if summary is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Resumen no encontrado.",
-        )
+        raise not_found("Resumen no encontrado.")
 
     return summary
 
 
-@router.post("/{document_id}/summarize", response_model=DocumentSummaryResponse)
+@router.post(
+    "/{document_id}/summarize",
+    response_model=DocumentSummaryResponse,
+    summary="Regenerar resumen",
+    description="Vuelve a generar el resumen a partir del texto persistido del documento.",
+    responses={status.HTTP_404_NOT_FOUND: ERROR_RESPONSES[status.HTTP_404_NOT_FOUND]},
+)
 def summarize_document_again(
     document_id: int,
     db: Session = Depends(get_db),
 ) -> DocumentSummary:
     document = db.get(Document, document_id)
     if document is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Documento no encontrado.",
-        )
+        raise not_found("Documento no encontrado.")
 
     stmt = select(DocumentText).where(DocumentText.document_id == document_id)
     document_text = db.scalar(stmt)
 
     if document_text is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Texto del documento no encontrado.",
-        )
+        raise not_found("Texto del documento no encontrado.")
 
     result = generate_summary(document_text.raw_text)
 
@@ -255,7 +289,13 @@ def summarize_document_again(
     return existing
 
 
-@router.get("/{document_id}/fields", response_model=list[ExtractedFieldResponse])
+@router.get(
+    "/{document_id}/fields",
+    response_model=list[ExtractedFieldResponse],
+    summary="Obtener campos extraídos",
+    description="Lista los campos estructurados detectados para un documento.",
+    responses={status.HTTP_404_NOT_FOUND: ERROR_RESPONSES[status.HTTP_404_NOT_FOUND]},
+)
 def get_document_fields(
     document_id: int,
     db: Session = Depends(get_db),
@@ -268,15 +308,18 @@ def get_document_fields(
     fields = list(db.scalars(stmt).all())
 
     if not fields:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Campos extraídos no encontrados.",
-        )
+        raise not_found("Campos extraídos no encontrados.")
 
     return fields
 
 
-@router.get("/{document_id}/chunks", response_model=list[DocumentChunkResponse])
+@router.get(
+    "/{document_id}/chunks",
+    response_model=list[DocumentChunkResponse],
+    summary="Obtener chunks indexados",
+    description="Retorna los fragmentos persistidos para búsqueda semántica del documento.",
+    responses={status.HTTP_404_NOT_FOUND: ERROR_RESPONSES[status.HTTP_404_NOT_FOUND]},
+)
 def get_document_chunks(
     document_id: int,
     db: Session = Depends(get_db),
@@ -289,9 +332,6 @@ def get_document_chunks(
     chunks = list(db.scalars(stmt).all())
 
     if not chunks:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Chunks no encontrados para este documento.",
-        )
+        raise not_found("Chunks no encontrados para este documento.")
 
     return chunks

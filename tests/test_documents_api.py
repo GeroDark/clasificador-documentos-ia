@@ -38,9 +38,11 @@ def test_upload_document_rejects_unsupported_extension(client) -> None:
     )
 
     assert response.status_code == 400
-    assert response.json()["detail"] == (
-        "Tipo de archivo no permitido. Solo se aceptan PDF, DOCX y TXT."
-    )
+    assert response.json() == {
+        "code": "bad_request",
+        "message": "Tipo de archivo no permitido. Solo se aceptan PDF, DOCX y TXT.",
+        "details": None,
+    }
 
 
 def test_list_documents_returns_persisted_documents(client, document_factory) -> None:
