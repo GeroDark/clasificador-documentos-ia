@@ -1,116 +1,58 @@
-# Plataforma Inteligente para Clasificación y Consulta de Documentos
+# Clasificador de Documentos con IA
 
-API backend construida con **FastAPI** para procesar documentos empresariales con un flujo inteligente que permite:
+Backend en Python para procesamiento documental empresarial con clasificación, extracción de información, búsqueda semántica y preguntas sobre documentos.
 
-- subir archivos PDF, DOCX y TXT
-- extraer texto automáticamente
-- clasificar documentos por tipo
-- generar resúmenes automáticos
-- extraer campos clave de negocio
-- indexar contenido con embeddings
-- realizar búsqueda semántica
-- responder preguntas sobre los documentos
-- procesar archivos en segundo plano con Celery + Redis
+La propuesta de valor del proyecto es convertir documentos como contratos, propuestas, cartas, facturas o reportes en datos consultables desde API, con un pipeline asíncrono y una base técnica defendible para portafolio profesional de backend.
 
-Este proyecto está orientado a un caso de uso empresarial real, no a una demo genérica de IA.
+## Qué problema resuelve
 
----
+En muchos equipos los documentos viven como archivos sueltos y la consulta depende de lectura manual. Eso vuelve costoso:
 
-## Objetivo del proyecto
+- encontrar información puntual
+- clasificar documentos operativamente
+- detectar montos, fechas o vigencias
+- buscar por significado, no solo por nombre de archivo
+- responder preguntas sobre el contenido ya cargado
 
-Construir una plataforma que permita a una empresa centralizar y consultar documentos de manera más eficiente usando procesamiento automático de lenguaje y búsqueda por significado.
+Este proyecto aborda ese problema desde backend:
 
-Ejemplos de uso:
-
-- clasificar contratos, propuestas, cartas, facturas e informes
-- encontrar documentos relacionados con garantías o vencimientos
-- extraer montos, fechas, remitentes, asuntos y vigencias
-- responder preguntas como:
-  - ¿Cuál es el monto referencial?
-  - ¿Cuál es la vigencia del documento?
-  - ¿Quién figura como remitente?
-  - ¿De qué trata este documento?
-
----
-
-## Características principales
-
-### 1. Carga de documentos
-Permite subir archivos en formato:
-
-- PDF
-- DOCX
-- TXT
-
-Cada archivo queda registrado con sus metadatos básicos y almacenado localmente en la carpeta `uploads/`.
-
-### 2. Procesamiento automático
-Una vez subido el archivo, el sistema ejecuta un pipeline asíncrono que:
-
+- recibe archivos `PDF`, `DOCX` y `TXT`
 - extrae texto
-- clasifica el documento
-- genera resumen
-- extrae campos clave
-- divide el contenido en fragmentos
-- genera embeddings
-- indexa el documento para búsqueda semántica
+- clasifica y resume
+- extrae campos de negocio
+- indexa chunks con embeddings
+- habilita búsqueda semántica
+- responde preguntas con fragmentos fuente
 
-### 3. Clasificación documental
-Clasifica el documento en categorías como:
+## Capacidades actuales
 
-- `contract`
-- `proposal`
-- `invoice`
-- `letter`
-- `report`
-- `other`
+- carga de documentos y almacenamiento local en `uploads/`
+- creación y seguimiento de jobs de procesamiento
+- procesamiento asíncrono con Celery + Redis
+- extracción de texto para `TXT`, `DOCX` y `PDF`
+- clasificación documental basada en reglas
+- resumen extractivo
+- extracción de campos clave
+- indexación semántica con PostgreSQL + `pgvector`
+- endpoint de búsqueda semántica
+- endpoint de preguntas sobre documentos
+- health checks, contrato API consistente, tests y CI
 
-Actualmente utiliza un clasificador basado en reglas y palabras clave, pensado como MVP profesional y extensible a modelos de IA más avanzados.
+## Documentación técnica
 
-### 4. Resumen automático
-Genera:
+- [Arquitectura](docs/architecture.md)
+- [API Overview](docs/api-overview.md)
 
-- resumen corto
-- puntos clave
-- palabras clave
+## Enfoque del proyecto
 
-### 5. Extracción de campos clave
-Extrae automáticamente información útil como:
+No busca simular una plataforma enterprise completa ni prometer funcionalidades inexistentes. El foco actual es una base profesional para backend Python + IA documental aplicada:
 
-- empresa
-- monto
-- fecha
-- asunto
-- vigencia
-- remitente
-
-### 6. Búsqueda semántica
-Permite consultar documentos por significado utilizando embeddings y `pgvector` en PostgreSQL.
-
-Ejemplos:
-
-- documentos que hablen de garantías
-- propuestas con monto alto
-- contratos con fecha de vencimiento
-- documentos relacionados con carta fianza
-
-### 7. Preguntas sobre documentos
-Permite hacer preguntas en lenguaje natural y responder usando los fragmentos más relevantes del documento.
-
-### 8. Procesamiento asíncrono
-El procesamiento pesado se ejecuta con:
-
-- Celery
-- Redis
-
-Esto permite que la subida de documentos responda rápido y el análisis ocurra en segundo plano.
-
-### 9. Observabilidad básica
-Incluye:
-
-- health checks
-- logging por request con `X-Request-ID`
-- seguimiento de jobs de procesamiento
+- arquitectura por capas
+- API clara y documentada
+- pipeline asíncrono explícito
+- persistencia relacional
+- recuperación semántica
+- testing pragmático
 
 ---
 
@@ -290,7 +232,7 @@ CELERY_RESULT_BACKEND=redis://127.0.0.1:6379/1
 ### 1. Clonar el proyecto
 
 ```bash
-git clone <URL_DEL_REPOSITORIO>
+git clone https://github.com/GeroDark/clasificador-documentos-ia.git
 cd clasificador-documentos-ia
 ```
 
@@ -300,6 +242,12 @@ cd clasificador-documentos-ia
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
+```
+
+#### Linux / macOS
+```bash
+python -m venv .venv
+source .venv/bin/activate
 ```
 
 ### 3. Instalar dependencias
@@ -313,6 +261,11 @@ pip install -r requirements-dev.txt
 ```bash
 docker compose up -d
 ```
+
+Esto levanta:
+
+- PostgreSQL con `pgvector` en `127.0.0.1:5433`
+- Redis en `127.0.0.1:6379`
 
 ### 5. Aplicar migraciones
 
@@ -344,6 +297,12 @@ Una vez levantada la API, la documentación Swagger está disponible en:
 
 ```text
 http://127.0.0.1:8000/docs
+```
+
+La especificación OpenAPI se expone en:
+
+```text
+http://127.0.0.1:8000/openapi.json
 ```
 
 ---
@@ -508,7 +467,13 @@ Extracción por patrones regex para identificar campos de negocio.
 Ejecutar tests:
 
 ```bash
-pytest
+pytest -q
+```
+
+Ejecutar lint:
+
+```bash
+ruff check .
 ```
 
 Cobertura funcional actual de tests:
@@ -521,6 +486,25 @@ Cobertura funcional actual de tests:
 - extracción de campos
 - question answering
 - estados del pipeline
+- endpoints críticos de documentos y jobs
+- contrato API y errores
+- cobertura determinista de `/api/search` y `/api/ask`
+
+---
+
+## CI
+
+GitHub Actions valida el proyecto en cada `push` y `pull_request`.
+
+El workflow actual:
+
+- instala dependencias con Python 3.11
+- levanta PostgreSQL con `pgvector`
+- levanta Redis
+- crea `uploads/`
+- ejecuta `alembic upgrade head`
+- corre `ruff check .`
+- corre `pytest -q`
 
 ---
 
@@ -538,17 +522,12 @@ Cobertura funcional actual de tests:
 
 ## Mejoras futuras
 
-- OCR para PDFs escaneados
-- autenticación y gestión de usuarios
-- almacenamiento en S3 o similar
-- panel administrativo
-- corrección manual de clasificación y campos
-- búsqueda híbrida léxica + semántica
-- re-ranking de resultados
-- uso de LLM para resúmenes y respuestas más avanzadas
-- evaluación automática de precisión
-- métricas y observabilidad avanzada
-- despliegue productivo con workers separados
+Roadmap corto y realista para siguientes fases:
+
+- reforzar evaluación y calidad de clasificación/extracción
+- mejorar ranking y estrategia de búsqueda semántica
+- ampliar tests de integración sobre pipeline completo
+- documentar despliegue local y productivo con más detalle
 
 ---
 
