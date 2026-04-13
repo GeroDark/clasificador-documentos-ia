@@ -20,6 +20,26 @@ from app.services.question_answering import answer_question
 router = APIRouter(prefix="/api/ask", tags=["ask"])
 
 
+def fetch_ask_rows(
+    db: Session,
+    query_embedding: list[float],
+    limit: int,
+    document_id: int | None = None,
+) -> list[tuple[DocumentChunk, Document, float]]:
+    distance = DocumentChunk.embedding.cosine_distance(query_embedding)
+
+    stmt = (
+        select(DocumentChunk, Document, distance.label("distance"))
+        .join(Document, Document.id == DocumentChunk.document_id)
+    )
+
+    if document_id is not None:
+        stmt = stmt.where(DocumentChunk.document_id == document_id)
+
+    stmt = stmt.order_by(distance.asc()).limit(limit)
+    return list(db.execute(stmt).all())
+
+
 @router.post(
     "/",
     response_model=AskResponse,
@@ -36,18 +56,7 @@ def ask_question(payload: AskRequest, db: Session = Depends(get_db)) -> AskRespo
     final_top_k = payload.top_k or settings.semantic_search_top_k
 
     query_embedding = embed_query(payload.question)
-    distance = DocumentChunk.embedding.cosine_distance(query_embedding)
-
-    stmt = (
-        select(DocumentChunk, Document, distance.label("distance"))
-        .join(Document, Document.id == DocumentChunk.document_id)
-    )
-
-    if payload.document_id is not None:
-        stmt = stmt.where(DocumentChunk.document_id == payload.document_id)
-
-    stmt = stmt.order_by(distance.asc()).limit(final_top_k)
-    rows = db.execute(stmt).all()
+    rows = fetch_ask_rows(db, query_embedding, final_top_k, payload.document_id)
 
     if not rows:
         raise not_found("No se encontraron fragmentos relevantes para responder.")

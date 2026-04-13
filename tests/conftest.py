@@ -11,6 +11,7 @@ from app.db.session import get_db
 from app.main import app
 from app.models.document import Document
 from app.models.processing_job import ProcessingJob
+from app.models.query_log import QueryLog
 
 engine = create_engine(
     "sqlite://",
@@ -21,6 +22,7 @@ TestingSessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=Fals
 
 Document.__table__.create(bind=engine, checkfirst=True)
 ProcessingJob.__table__.create(bind=engine, checkfirst=True)
+QueryLog.__table__.create(bind=engine, checkfirst=True)
 
 
 def override_get_db() -> Generator[Session, None, None]:
@@ -38,6 +40,7 @@ app.dependency_overrides[get_db] = override_get_db
 def clean_test_db() -> Generator[None, None, None]:
     with TestingSessionLocal() as db:
         db.execute(delete(ProcessingJob))
+        db.execute(delete(QueryLog))
         db.execute(delete(Document))
         db.commit()
 
@@ -45,6 +48,7 @@ def clean_test_db() -> Generator[None, None, None]:
 
     with TestingSessionLocal() as db:
         db.execute(delete(ProcessingJob))
+        db.execute(delete(QueryLog))
         db.execute(delete(Document))
         db.commit()
 

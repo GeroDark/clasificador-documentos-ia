@@ -13,6 +13,23 @@ from app.services.embeddings import embed_query
 router = APIRouter(prefix="/api/search", tags=["search"])
 
 
+def fetch_semantic_search_rows(
+    db: Session,
+    query_embedding: list[float],
+    limit: int,
+) -> list[tuple[DocumentChunk, Document, float]]:
+    distance = DocumentChunk.embedding.cosine_distance(query_embedding)
+
+    stmt = (
+        select(DocumentChunk, Document, distance.label("distance"))
+        .join(Document, Document.id == DocumentChunk.document_id)
+        .order_by(distance.asc())
+        .limit(limit)
+    )
+
+    return list(db.execute(stmt).all())
+
+
 @router.get(
     "/semantic/",
     response_model=list[SemanticSearchResultResponse],
@@ -31,16 +48,7 @@ def semantic_search(
     final_limit = limit or settings.semantic_search_top_k
 
     query_embedding = embed_query(q)
-    distance = DocumentChunk.embedding.cosine_distance(query_embedding)
-
-    stmt = (
-        select(DocumentChunk, Document, distance.label("distance"))
-        .join(Document, Document.id == DocumentChunk.document_id)
-        .order_by(distance.asc())
-        .limit(final_limit)
-    )
-
-    rows = db.execute(stmt).all()
+    rows = fetch_semantic_search_rows(db, query_embedding, final_limit)
 
     results: list[SemanticSearchResultResponse] = []
     for chunk, document, distance_value in rows:
