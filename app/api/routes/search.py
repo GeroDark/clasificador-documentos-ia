@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.api.deps import get_current_user
 from app.api.errors import ERROR_RESPONSES
 from app.core.config import get_settings
 from app.db.session import get_db
@@ -10,7 +11,11 @@ from app.models.document_chunk import DocumentChunk
 from app.schemas.search import SemanticSearchResultResponse
 from app.services.embeddings import embed_query
 
-router = APIRouter(prefix="/api/search", tags=["search"])
+router = APIRouter(
+    prefix="/api/search",
+    tags=["search"],
+    dependencies=[Depends(get_current_user)],
+)
 
 
 def fetch_semantic_search_rows(

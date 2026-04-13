@@ -3,7 +3,7 @@ from types import SimpleNamespace
 from app.models.query_log import QueryLog
 
 
-def test_semantic_search_returns_mocked_results(client, monkeypatch) -> None:
+def test_semantic_search_returns_mocked_results(client, monkeypatch, auth_headers) -> None:
     monkeypatch.setattr("app.api.routes.search.embed_query", lambda text: [0.1, 0.2, 0.3])
     monkeypatch.setattr(
         "app.api.routes.search.fetch_semantic_search_rows",
@@ -21,7 +21,11 @@ def test_semantic_search_returns_mocked_results(client, monkeypatch) -> None:
         ],
     )
 
-    response = client.get("/api/search/semantic/", params={"q": "monto contrato", "limit": 2})
+    response = client.get(
+        "/api/search/semantic/",
+        params={"q": "monto contrato", "limit": 2},
+        headers=auth_headers,
+    )
 
     assert response.status_code == 200
     assert response.json() == [
@@ -44,21 +48,25 @@ def test_semantic_search_returns_mocked_results(client, monkeypatch) -> None:
     ]
 
 
-def test_semantic_search_returns_empty_list_when_no_results(client, monkeypatch) -> None:
+def test_semantic_search_returns_empty_list_when_no_results(client, monkeypatch, auth_headers) -> None:
     monkeypatch.setattr("app.api.routes.search.embed_query", lambda text: [0.1, 0.2, 0.3])
     monkeypatch.setattr(
         "app.api.routes.search.fetch_semantic_search_rows",
         lambda db, query_embedding, limit: [],
     )
 
-    response = client.get("/api/search/semantic/", params={"q": "consulta valida"})
+    response = client.get(
+        "/api/search/semantic/",
+        params={"q": "consulta valida"},
+        headers=auth_headers,
+    )
 
     assert response.status_code == 200
     assert response.json() == []
 
 
-def test_semantic_search_validates_short_query(client) -> None:
-    response = client.get("/api/search/semantic/", params={"q": "a"})
+def test_semantic_search_validates_short_query(client, auth_headers) -> None:
+    response = client.get("/api/search/semantic/", params={"q": "a"}, headers=auth_headers)
 
     assert response.status_code == 422
     payload = response.json()
@@ -66,7 +74,9 @@ def test_semantic_search_validates_short_query(client) -> None:
     assert payload["message"] == "La solicitud no cumple el contrato esperado."
 
 
-def test_ask_returns_mocked_answer_and_sources(client, db_session, monkeypatch) -> None:
+def test_ask_returns_mocked_answer_and_sources(
+    client, db_session, monkeypatch, auth_headers
+) -> None:
     monkeypatch.setattr("app.api.routes.ask.embed_query", lambda text: [0.5, 0.1, 0.9])
     monkeypatch.setattr(
         "app.api.routes.ask.fetch_ask_rows",
@@ -89,6 +99,7 @@ def test_ask_returns_mocked_answer_and_sources(client, db_session, monkeypatch) 
     response = client.post(
         "/api/ask/",
         json={"question": "¿Cuál es el monto referencial?", "document_id": 7, "top_k": 3},
+        headers=auth_headers,
     )
 
     assert response.status_code == 200
@@ -115,7 +126,9 @@ def test_ask_returns_mocked_answer_and_sources(client, db_session, monkeypatch) 
     assert stored_logs[0].document_id == 7
 
 
-def test_ask_returns_not_found_when_no_relevant_chunks_exist(client, monkeypatch) -> None:
+def test_ask_returns_not_found_when_no_relevant_chunks_exist(
+    client, monkeypatch, auth_headers
+) -> None:
     monkeypatch.setattr("app.api.routes.ask.embed_query", lambda text: [0.5, 0.1, 0.9])
     monkeypatch.setattr(
         "app.api.routes.ask.fetch_ask_rows",
@@ -125,6 +138,7 @@ def test_ask_returns_not_found_when_no_relevant_chunks_exist(client, monkeypatch
     response = client.post(
         "/api/ask/",
         json={"question": "¿Cuál es el monto referencial?", "document_id": 999},
+        headers=auth_headers,
     )
 
     assert response.status_code == 404
@@ -135,8 +149,8 @@ def test_ask_returns_not_found_when_no_relevant_chunks_exist(client, monkeypatch
     }
 
 
-def test_ask_validates_short_question(client) -> None:
-    response = client.post("/api/ask/", json={"question": "a"})
+def test_ask_validates_short_question(client, auth_headers) -> None:
+    response = client.post("/api/ask/", json={"question": "a"}, headers=auth_headers)
 
     assert response.status_code == 422
     payload = response.json()

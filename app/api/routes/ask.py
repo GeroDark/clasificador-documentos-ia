@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.api.deps import get_current_user
 from app.api.errors import ERROR_RESPONSES, not_found
 from app.core.config import get_settings
 from app.db.session import get_db
@@ -17,7 +18,11 @@ from app.schemas.ask import (
 from app.services.embeddings import embed_query
 from app.services.question_answering import answer_question
 
-router = APIRouter(prefix="/api/ask", tags=["ask"])
+router = APIRouter(
+    prefix="/api/ask",
+    tags=["ask"],
+    dependencies=[Depends(get_current_user)],
+)
 
 
 def fetch_ask_rows(

@@ -6,7 +6,9 @@ from app.schemas.api_error import ApiErrorResponse, ValidationErrorDetail
 
 DEFAULT_ERROR_CODES = {
     status.HTTP_400_BAD_REQUEST: "bad_request",
+    status.HTTP_401_UNAUTHORIZED: "unauthorized",
     status.HTTP_404_NOT_FOUND: "not_found",
+    status.HTTP_409_CONFLICT: "conflict",
     status.HTTP_422_UNPROCESSABLE_CONTENT: "validation_error",
 }
 
@@ -15,9 +17,17 @@ ERROR_RESPONSES = {
         "model": ApiErrorResponse,
         "description": "Solicitud invÃ¡lida o regla de negocio no cumplida.",
     },
+    status.HTTP_401_UNAUTHORIZED: {
+        "model": ApiErrorResponse,
+        "description": "Autenticacion requerida o token invalido.",
+    },
     status.HTTP_404_NOT_FOUND: {
         "model": ApiErrorResponse,
         "description": "Recurso no encontrado.",
+    },
+    status.HTTP_409_CONFLICT: {
+        "model": ApiErrorResponse,
+        "description": "Conflicto con el estado actual del recurso.",
     },
     status.HTTP_422_UNPROCESSABLE_CONTENT: {
         "model": ApiErrorResponse,
@@ -27,10 +37,17 @@ ERROR_RESPONSES = {
 
 
 class ApiError(HTTPException):
-    def __init__(self, status_code: int, code: str, message: str):
+    def __init__(
+        self,
+        status_code: int,
+        code: str,
+        message: str,
+        headers: dict[str, str] | None = None,
+    ):
         super().__init__(
             status_code=status_code,
             detail={"code": code, "message": message},
+            headers=headers,
         )
 
 
@@ -38,8 +55,21 @@ def bad_request(message: str) -> ApiError:
     return ApiError(status.HTTP_400_BAD_REQUEST, "bad_request", message)
 
 
+def unauthorized(message: str = "No autenticado.") -> ApiError:
+    return ApiError(
+        status.HTTP_401_UNAUTHORIZED,
+        "unauthorized",
+        message,
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+
 def not_found(message: str) -> ApiError:
     return ApiError(status.HTTP_404_NOT_FOUND, "not_found", message)
+
+
+def conflict(message: str) -> ApiError:
+    return ApiError(status.HTTP_409_CONFLICT, "conflict", message)
 
 
 def _build_http_error_payload(exc: HTTPException) -> ApiErrorResponse:
@@ -59,7 +89,11 @@ def _build_http_error_payload(exc: HTTPException) -> ApiErrorResponse:
 
 async def http_exception_handler(_: Request, exc: HTTPException) -> JSONResponse:
     payload = _build_http_error_payload(exc)
-    return JSONResponse(status_code=exc.status_code, content=payload.model_dump())
+    response = JSONResponse(status_code=exc.status_code, content=payload.model_dump())
+    if exc.headers:
+        for header_name, header_value in exc.headers.items():
+            response.headers[header_name] = header_value
+    return response
 
 
 async def request_validation_exception_handler(

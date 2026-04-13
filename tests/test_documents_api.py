@@ -3,7 +3,9 @@ from types import SimpleNamespace
 from app.models.document import Document
 
 
-def test_upload_document_creates_document_and_job(client, db_session, monkeypatch) -> None:
+def test_upload_document_creates_document_and_job(
+    client, db_session, monkeypatch, auth_headers
+) -> None:
     monkeypatch.setattr(
         "app.api.routes.documents.save_upload_file",
         lambda upload_file: ("stored-propuesta.txt", "uploads/stored-propuesta.txt"),
@@ -16,6 +18,7 @@ def test_upload_document_creates_document_and_job(client, db_session, monkeypatc
     response = client.post(
         "/api/documents/upload/",
         files={"file": ("propuesta.txt", b"contenido de prueba", "text/plain")},
+        headers=auth_headers,
     )
 
     assert response.status_code == 202
@@ -31,10 +34,11 @@ def test_upload_document_creates_document_and_job(client, db_session, monkeypatc
     assert document.status == "queued"
 
 
-def test_upload_document_rejects_unsupported_extension(client) -> None:
+def test_upload_document_rejects_unsupported_extension(client, auth_headers) -> None:
     response = client.post(
         "/api/documents/upload/",
         files={"file": ("malicioso.exe", b"binario", "application/octet-stream")},
+        headers=auth_headers,
     )
 
     assert response.status_code == 400
@@ -45,11 +49,11 @@ def test_upload_document_rejects_unsupported_extension(client) -> None:
     }
 
 
-def test_list_documents_returns_persisted_documents(client, document_factory) -> None:
+def test_list_documents_returns_persisted_documents(client, document_factory, auth_headers) -> None:
     first = document_factory(original_filename="a.txt", status="metadata_only")
     second = document_factory(original_filename="b.pdf", status="indexed")
 
-    response = client.get("/api/documents/")
+    response = client.get("/api/documents/", headers=auth_headers)
 
     assert response.status_code == 200
     payload = response.json()

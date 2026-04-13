@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, File, UploadFile, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.api.deps import get_current_user
 from app.api.errors import ERROR_RESPONSES, bad_request, not_found
 from app.db.session import get_db
 from app.models.document import Document
@@ -25,7 +26,11 @@ from app.services.storage import save_upload_file
 from app.services.summarizer import generate_summary
 from app.tasks import process_document_task
 
-router = APIRouter(prefix="/api/documents", tags=["documents"])
+router = APIRouter(
+    prefix="/api/documents",
+    tags=["documents"],
+    dependencies=[Depends(get_current_user)],
+)
 
 ALLOWED_EXTENSIONS = {".pdf", ".docx", ".txt"}
 

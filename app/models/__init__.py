@@ -6,6 +6,7 @@ from app.models.document_text import DocumentText
 from app.models.extracted_field import ExtractedField
 from app.models.processing_job import ProcessingJob
 from app.models.query_log import QueryLog
+from app.models.user import User
 
 __all__ = [
     "Document",
@@ -16,4 +17,5 @@ __all__ = [
     "DocumentChunk",
     "QueryLog",
     "ProcessingJob",
+    "User",
 ]

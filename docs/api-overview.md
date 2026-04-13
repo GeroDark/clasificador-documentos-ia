@@ -40,6 +40,14 @@ Este módulo concentra el ciclo de vida documental y la lectura de resultados pe
 
 Permite consultar el procesamiento asíncrono.
 
+### Auth
+
+- `POST /api/auth/register`
+- `POST /api/auth/login`
+- `GET /api/auth/me`
+
+Permite crear usuarios locales, obtener access tokens JWT y consultar el usuario autenticado.
+
 ### Search
 
 - `GET /api/search/semantic/`
@@ -59,11 +67,14 @@ Permite responder preguntas sobre documentos y consultar el historial de queries
 
 Los endpoints principales usan `response_model` explícitos para:
 
+- auth
 - documentos
 - jobs
 - resultados de búsqueda
 - respuestas de QA
 - health checks estructurados
+
+Los endpoints de negocio (`documents`, `jobs`, `search` y `ask`) requieren token Bearer.
 
 ### Errores controlados
 

@@ -2,12 +2,17 @@ from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.api.deps import get_current_user
 from app.api.errors import ERROR_RESPONSES, not_found
 from app.db.session import get_db
 from app.models.processing_job import ProcessingJob
 from app.schemas.processing_job import ProcessingJobResponse
 
-router = APIRouter(prefix="/api/jobs", tags=["jobs"])
+router = APIRouter(
+    prefix="/api/jobs",
+    tags=["jobs"],
+    dependencies=[Depends(get_current_user)],
+)
 
 
 @router.get(

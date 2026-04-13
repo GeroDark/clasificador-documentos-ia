@@ -5,6 +5,7 @@ from app.schemas.ask import (
     AskResponse,
     QueryLogResponse,
 )
+from app.schemas.auth import LoginRequest, RegisterRequest, TokenResponse, UserResponse
 from app.schemas.document import DocumentCreate, DocumentResponse
 from app.schemas.document_chunk import DocumentChunkResponse
 from app.schemas.document_classification import DocumentClassificationResponse
@@ -20,8 +21,12 @@ __all__ = [
     "AskResponse",
     "ApiErrorResponse",
     "AnswerSourceChunkResponse",
+    "LoginRequest",
     "QueryLogResponse",
     "ProcessingJobResponse",
+    "RegisterRequest",
+    "TokenResponse",
+    "UserResponse",
     "DocumentCreate",
     "DocumentResponse",
     "DocumentTextResponse",

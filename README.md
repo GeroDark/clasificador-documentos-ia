@@ -36,6 +36,7 @@ Este proyecto aborda ese problema desde backend:
 - indexación semántica con PostgreSQL + `pgvector`
 - endpoint de búsqueda semántica
 - endpoint de preguntas sobre documentos
+- autenticación JWT básica
 - health checks, contrato API consistente, tests y CI
 
 ## Documentación técnica
@@ -223,6 +224,9 @@ SEMANTIC_SEARCH_TOP_K=5
 REDIS_URL=redis://127.0.0.1:6379/0
 CELERY_BROKER_URL=redis://127.0.0.1:6379/0
 CELERY_RESULT_BACKEND=redis://127.0.0.1:6379/1
+AUTH_SECRET_KEY=change-me-in-development-32-bytes
+AUTH_ALGORITHM=HS256
+AUTH_ACCESS_TOKEN_EXPIRE_MINUTES=60
 ```
 
 ---
@@ -327,6 +331,11 @@ http://127.0.0.1:8000/openapi.json
 - `GET /api/jobs/`
 - `GET /api/jobs/{job_id}/status`
 
+### Auth
+- `POST /api/auth/register`
+- `POST /api/auth/login`
+- `GET /api/auth/me`
+
 ### Búsqueda
 - `GET /api/search/semantic/`
 
@@ -407,6 +416,19 @@ Ejemplo de respuesta:
   ]
 }
 ```
+
+---
+
+## Autenticación
+
+La versión actual incluye autenticación JWT básica con:
+
+- registro de usuarios
+- login con email y contraseña
+- endpoint `GET /api/auth/me`
+- protección de endpoints de negocio (`documents`, `jobs`, `search` y `ask`)
+
+Los passwords se almacenan hasheados con `scrypt`; no se guardan en texto plano.
 
 ---
 

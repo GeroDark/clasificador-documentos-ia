@@ -1,5 +1,5 @@
-def test_job_not_found_returns_standard_error_contract(client) -> None:
-    response = client.get("/api/jobs/999/status")
+def test_job_not_found_returns_standard_error_contract(client, auth_headers) -> None:
+    response = client.get("/api/jobs/999/status", headers=auth_headers)
 
     assert response.status_code == 404
     assert response.json() == {
@@ -9,10 +9,11 @@ def test_job_not_found_returns_standard_error_contract(client) -> None:
     }
 
 
-def test_invalid_upload_returns_standard_error_contract(client) -> None:
+def test_invalid_upload_returns_standard_error_contract(client, auth_headers) -> None:
     response = client.post(
         "/api/documents/upload/",
         files={"file": ("malicioso.exe", b"binario", "application/octet-stream")},
+        headers=auth_headers,
     )
 
     assert response.status_code == 400
@@ -23,8 +24,8 @@ def test_invalid_upload_returns_standard_error_contract(client) -> None:
     }
 
 
-def test_validation_errors_follow_standard_contract(client) -> None:
-    response = client.get("/api/search/semantic/", params={"q": "a"})
+def test_validation_errors_follow_standard_contract(client, auth_headers) -> None:
+    response = client.get("/api/search/semantic/", params={"q": "a"}, headers=auth_headers)
 
     assert response.status_code == 422
     payload = response.json()

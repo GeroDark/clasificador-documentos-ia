@@ -7,11 +7,13 @@ from sqlalchemy import create_engine, delete
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app.core.security import create_access_token, hash_password
 from app.db.session import get_db
 from app.main import app
 from app.models.document import Document
 from app.models.processing_job import ProcessingJob
 from app.models.query_log import QueryLog
+from app.models.user import User
 
 engine = create_engine(
     "sqlite://",
@@ -23,6 +25,7 @@ TestingSessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=Fals
 Document.__table__.create(bind=engine, checkfirst=True)
 ProcessingJob.__table__.create(bind=engine, checkfirst=True)
 QueryLog.__table__.create(bind=engine, checkfirst=True)
+User.__table__.create(bind=engine, checkfirst=True)
 
 
 def override_get_db() -> Generator[Session, None, None]:
@@ -41,6 +44,7 @@ def clean_test_db() -> Generator[None, None, None]:
     with TestingSessionLocal() as db:
         db.execute(delete(ProcessingJob))
         db.execute(delete(QueryLog))
+        db.execute(delete(User))
         db.execute(delete(Document))
         db.commit()
 
@@ -49,6 +53,7 @@ def clean_test_db() -> Generator[None, None, None]:
     with TestingSessionLocal() as db:
         db.execute(delete(ProcessingJob))
         db.execute(delete(QueryLog))
+        db.execute(delete(User))
         db.execute(delete(Document))
         db.commit()
 
@@ -110,3 +115,28 @@ def job_factory(db_session: Session, document_factory):
         return job
 
     return factory
+
+
+@pytest.fixture
+def user_factory(db_session: Session):
+    def factory(**overrides) -> User:
+        user = User(
+            email=overrides.get("email", "usuario@example.com"),
+            full_name=overrides.get("full_name", "Usuario Demo"),
+            password_hash=overrides.get("password_hash", hash_password("Password123")),
+            is_active=overrides.get("is_active", True),
+            created_at=overrides.get("created_at", datetime.now(timezone.utc)),
+        )
+        db_session.add(user)
+        db_session.commit()
+        db_session.refresh(user)
+        return user
+
+    return factory
+
+
+@pytest.fixture
+def auth_headers(user_factory):
+    user = user_factory()
+    token, _ = create_access_token(user.id)
+    return {"Authorization": f"Bearer {token}"}

@@ -25,6 +25,10 @@ app = FastAPI(
     description="API para clasificación, extracción, resumen, búsqueda semántica y consulta inteligente de documentos.",
     openapi_tags=[
         {
+            "name": "auth",
+            "description": "Registro, login y consulta del usuario autenticado.",
+        },
+        {
             "name": "documents",
             "description": "Carga, consulta y enriquecimiento de documentos.",
         },

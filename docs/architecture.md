@@ -32,11 +32,13 @@ También centraliza:
 - validación de entrada
 - contrato HTTP
 - manejo consistente de errores controlados
+- autenticación JWT
 
 ### SQLAlchemy + PostgreSQL
 
 Persisten:
 
+- usuarios
 - documentos y metadatos
 - texto extraído
 - clasificaciones
