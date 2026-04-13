@@ -1,7 +1,6 @@
 import re
 from collections import defaultdict
 
-
 CATEGORY_RULES: dict[str, list[str]] = {
     "contract": [
         r"\bcontrato\b",

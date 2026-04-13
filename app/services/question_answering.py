@@ -1,7 +1,6 @@
 import re
 from collections import Counter
 
-
 STOPWORDS = {
     "de", "la", "el", "los", "las", "y", "a", "en", "por", "para", "con", "del",
     "al", "un", "una", "que", "se", "su", "sus", "o", "u", "es", "son", "como",

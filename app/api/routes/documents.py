@@ -20,8 +20,6 @@ from app.schemas.document_text import DocumentTextResponse
 from app.schemas.extracted_field import ExtractedFieldResponse
 from app.schemas.processing_job import ProcessingJobResponse
 from app.services.classifier import classify_text
-from app.services.field_extractor import extract_fields
-from app.services.semantic_indexer import reindex_document_chunks
 from app.services.storage import save_upload_file
 from app.services.summarizer import generate_summary
 from app.tasks import process_document_task

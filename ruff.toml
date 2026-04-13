@@ -1,0 +1,14 @@
+line-length = 88
+
+exclude = [
+    ".git",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".venv",
+    "alembic/versions",
+    "uploads",
+]
+
+[lint]
+select = ["E", "F", "I"]
+ignore = ["E501"]

@@ -12,7 +12,6 @@ from app.main import app
 from app.models.document import Document
 from app.models.processing_job import ProcessingJob
 
-
 engine = create_engine(
     "sqlite://",
     connect_args={"check_same_thread": False},
