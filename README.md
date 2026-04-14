@@ -43,6 +43,7 @@ Este proyecto aborda ese problema desde backend:
 
 - [Arquitectura](docs/architecture.md)
 - [API Overview](docs/api-overview.md)
+- [Demo Workflow](docs/demo-workflow.md)
 
 ## Enfoque del proyecto
 
@@ -295,6 +296,40 @@ celery -A app.celery_app:celery_app worker --pool=solo --loglevel=info
 
 ---
 
+## Demo local rápida
+
+Hay un flujo demo pensado para que cualquier persona pruebe el backend sin frontend y con un usuario local reproducible.
+
+### Crear usuario demo
+
+```bash
+python -m app.scripts.create_demo_user
+```
+
+Credenciales demo locales:
+
+- `demo@example.com`
+- `DemoPass123!`
+
+### Requests listas para probar
+
+- [Guía demo paso a paso](docs/demo-workflow.md)
+- [Colección HTTP](docs/requests/demo-api.http)
+- [Documento de ejemplo](docs/demo-files/demo-propuesta.txt)
+
+El flujo recomendado es:
+
+1. levantar Docker
+2. correr migraciones
+3. crear usuario demo
+4. hacer login
+5. subir el archivo de ejemplo
+6. consultar el job
+7. ejecutar búsqueda
+8. hacer una pregunta
+
+---
+
 ## Documentación interactiva
 
 Una vez levantada la API, la documentación Swagger está disponible en:
@@ -537,7 +572,7 @@ El workflow actual:
 - la extracción de campos depende de patrones relativamente estructurados
 - PDFs escaneados podrían requerir OCR
 - el almacenamiento de archivos es local
-- no hay autenticación ni control de usuarios
+- la autenticación actual es JWT básica: no hay roles, refresh tokens ni recuperación de contraseña
 - la corrección manual de resultados aún no está implementada
 
 ---

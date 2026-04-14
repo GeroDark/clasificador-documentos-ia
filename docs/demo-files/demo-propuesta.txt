@@ -1,0 +1,18 @@
+PROPUESTA COMERCIAL DEMO
+
+Cliente: Empresa Demo SAC
+Documento: Propuesta de servicios documentales
+Fecha: 2026-04-13
+Monto referencial: S/ 53,200.00
+Vigencia: 30 dias calendario
+Garantia de servicio: 12 meses
+
+Alcance:
+- Clasificacion documental inicial
+- Extraccion de texto y campos clave
+- Busqueda semantica sobre contenido indexado
+- Respuesta a preguntas sobre el documento
+
+Observaciones:
+Este archivo existe solo para pruebas locales del proyecto.
+No contiene datos reales ni informacion sensible.

@@ -1,0 +1,59 @@
+@baseUrl = http://127.0.0.1:8000
+@authToken = REPLACE_WITH_BEARER_TOKEN
+@documentId = 1
+@jobId = 1
+
+### Health check
+GET {{baseUrl}}/health/live
+
+### Login with the documented local demo user
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "demo@example.com",
+  "password": "DemoPass123!"
+}
+
+### Get current authenticated user
+GET {{baseUrl}}/api/auth/me
+Authorization: Bearer {{authToken}}
+
+### Upload the sample demo document
+POST {{baseUrl}}/api/documents/upload/
+Authorization: Bearer {{authToken}}
+Content-Type: multipart/form-data; boundary=DemoBoundary
+
+--DemoBoundary
+Content-Disposition: form-data; name="file"; filename="demo-propuesta.txt"
+Content-Type: text/plain
+
+< ../demo-files/demo-propuesta.txt
+--DemoBoundary--
+
+### Check job status
+GET {{baseUrl}}/api/jobs/{{jobId}}/status
+Authorization: Bearer {{authToken}}
+
+### List documents
+GET {{baseUrl}}/api/documents/
+Authorization: Bearer {{authToken}}
+
+### Run semantic search
+GET {{baseUrl}}/api/search/semantic/?q=garantia%20de%20servicio&limit=3
+Authorization: Bearer {{authToken}}
+
+### Ask a question about a specific document
+POST {{baseUrl}}/api/ask/
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "question": "Cual es el monto referencial?",
+  "document_id": {{documentId}},
+  "top_k": 3
+}
+
+### Inspect question logs
+GET {{baseUrl}}/api/ask/logs/?document_id={{documentId}}
+Authorization: Bearer {{authToken}}
